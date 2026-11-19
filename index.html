@@ -863,7 +863,7 @@
             });
         }
 
-        function createStudent() {
+        async function createStudent() {
             const name = document.getElementById('newStdName').value.trim();
             const grade = document.getElementById('newStdGrade').value.trim();
             const gender = document.getElementById('newStdGender').value;
@@ -873,15 +873,40 @@
             if(!name || !id || !pw) { alert('이름, 아이디, 비밀번호를 입력해주세요.'); return; }
             if(studentsState.some(s => s.id === id)) { alert('이미 존재하는 아이디입니다.'); return; }
 
-            studentsState.push({
-                id, pw, name, grade, gender,
-                level: 'GRADE 1', chapter: 1, targetScore: 90,
-                lastDate: new Date().toISOString().split('T')[0], wrongHistory: []
-            });
-            saveStates();
-            alert('학생 계정이 생성되었습니다.');
-            renderAdminLearningTable();
-            renderAdminStudentTable();
+            try {
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        action: 'createStudent',
+                        id: id,
+                        password: pw,
+                        name: name,
+                        grade: grade,
+                        gender: gender
+                    })
+                });
+
+                const result = await res.json();
+                if (!result.ok) {
+                    alert(result.message || '구글 시트 저장에 실패했습니다.');
+                    return;
+                }
+
+                studentsState.push({
+                    id, pw, name, grade, gender,
+                    level: 'GRADE 1', chapter: 1, targetScore: 90,
+                    lastDate: new Date().toISOString().split('T')[0], wrongHistory: []
+                });
+                saveStates();
+                alert(result.message || '학생 계정이 생성되었습니다.');
+                renderAdminLearningTable();
+                renderAdminStudentTable();
+            } catch (err) {
+                alert('서버 통신 중 오류가 발생했습니다: ' + err.message);
+            }
         }
 
         function deleteStudent(id) {
