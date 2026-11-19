@@ -673,20 +673,7 @@
             pw: '1234'
         };
 
-        let studentsState = JSON.parse(localStorage.getItem('dgp_students')) || [
-            {
-                id: 'student1',
-                pw: '1234',
-                name: '김민수',
-                grade: '초4',
-                gender: '남',
-                level: 'GRADE 1',
-                chapter: 1,
-                targetScore: 90,
-                lastDate: new Date().toISOString().split('T')[0],
-                wrongHistory: []
-            }
-        ];
+        let studentsState = JSON.parse(localStorage.getItem('dgp_students')) || [];
 
         let currentUser = null; // { role: 'admin'|'student', data: ... }
         let currentQuizList = [];
