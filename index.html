@@ -781,6 +781,45 @@
         }
 
         // ADMIN FUNCTIONS
+async function syncStudentsFromSheet() {
+            try {
+                const res = await fetch(`${WEB_APP_URL}?action=getStudents`);
+                const data = await res.json();
+                if (!data.ok || !Array.isArray(data.students)) return;
+
+                let changed = false;
+                data.students.forEach(s => {
+                    const sheetId = String(s.id || '').trim();
+                    if (!sheetId) return;
+
+                    const exists = studentsState.some(localStd => localStd.id === sheetId);
+                    if (!exists) {
+                        studentsState.push({
+                            id: sheetId,
+                            pw: String(s.password || '').trim(),
+                            name: sheetId,
+                            grade: '초등',
+                            gender: '남',
+                            level: 'GRADE 1',
+                            chapter: 1,
+                            targetScore: 90,
+                            lastDate: s.createdAt || new Date().toISOString().split('T')[0],
+                            wrongHistory: []
+                        });
+                        changed = true;
+                    }
+                });
+
+                if (changed) {
+                    saveStates();
+                    renderAdminLearningTable();
+                    renderAdminStudentTable();
+                }
+            } catch (e) {
+                console.warn('Failed to load students from sheet:', e);
+            }
+        }
+
         function showAdminDashboard() {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('adminDashboard').style.display = 'block';
@@ -789,6 +828,7 @@
 
             renderAdminLearningTable();
             renderAdminStudentTable();
+            syncStudentsFromSheet();
         }
 
         function switchAdminTab(tabName) {
@@ -987,7 +1027,6 @@
                 container.appendChild(pointBox);
             });
         }
-
         // QUIZ GENERATION & EXECUTION
         function startQuiz() {
             const level = currentUser.data.level;
