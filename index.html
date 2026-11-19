@@ -713,7 +713,7 @@
                 return;
             }
 
-            // Check Admin
+            // Check Admin locally
             if (inputId === adminState.id && inputPw === adminState.pw) {
                 currentUser = { role: 'admin', data: adminState };
                 showAdminDashboard();
@@ -728,21 +728,25 @@
                 return;
             }
 
-            // Fallback API Check
+            // Google Sheets / Apps Script Check
             try {
-                const res = await fetch(`${WEB_APP_URL}?action=login&id=${inputId}&pw=${inputPw}`);
+                const url = `${WEB_APP_URL}?action=login&id=${encodeURIComponent(inputId)}&password=${encodeURIComponent(inputPw)}`;
+                const res = await fetch(url);
                 const data = await res.json();
-                if (data.status === 'success') {
-                    if (data.role === 'admin') {
-                        currentUser = { role: 'admin', data: adminState };
+
+                if (data.ok && data.user) {
+                    const role = String(data.user.role || 'user').trim();
+
+                    if (role === 'admin') {
+                        currentUser = { role: 'admin', data: { id: data.user.id, pw: inputPw } };
                         showAdminDashboard();
                     } else {
-                        let found = studentsState.find(s => s.id === inputId);
+                        let found = studentsState.find(s => s.id === data.user.id);
                         if (!found) {
                             found = {
-                                id: inputId,
+                                id: data.user.id,
                                 pw: inputPw,
-                                name: data.name || inputId,
+                                name: data.name || data.user.id,
                                 grade: data.grade || '초등',
                                 gender: data.gender || '남',
                                 level: data.level || 'GRADE 1',
@@ -765,7 +769,6 @@
 
             alert('아이디 또는 비밀번호가 일치하지 않습니다.');
         }
-
         function logout() {
             currentUser = null;
             document.getElementById('loginScreen').style.display = 'block';
