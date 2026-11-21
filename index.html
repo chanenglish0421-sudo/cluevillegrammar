@@ -802,6 +802,7 @@ async function syncStudentsFromSheet() {
                     renderAdminLearningTable();
                     renderAdminStudentTable();
                 }
+                await syncProgressFromSheet();
             } catch (e) {
                 console.warn('Failed to load students from sheet:', e);
             }
