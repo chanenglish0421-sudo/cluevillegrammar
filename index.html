@@ -1137,6 +1137,74 @@ async function syncStudentsFromSheet() {
             }
         }
 
+        async function sendQuizResultToSheet(student, quizMeta) {
+            if (!student || !student.id) return;
+
+            try {
+                const res = await fetch(WEB_APP_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8'
+                    },
+                    body: JSON.stringify({
+                        action: 'saveQuizResult',
+                        id: student.id,
+                        name: student.name || student.id,
+                        level: student.level || 'GRADE 1',
+                        chapter: quizMeta.chapter || student.chapter || 1,
+                        quizRange: quizMeta.quizRange || `Ch.${student.chapter || 1}`,
+                        score: quizMeta.score ?? 0,
+                        targetScore: student.targetScore ?? 90,
+                        passed: Boolean(quizMeta.passed),
+                        nextChapter: student.chapter || 1,
+                        wrongHistory: Array.isArray(student.wrongHistory) ? student.wrongHistory : []
+                    })
+                });
+
+                const result = await res.json();
+                if (!result.ok) {
+                    console.warn('퀴즈 기록 시트 저장 실패:', result.message);
+                }
+            } catch (err) {
+                console.warn('퀴즈 기록 서버 전송 오류:', err);
+            }
+        }
+
+        async function syncProgressFromSheet() {
+            try {
+                const res = await fetch(`${WEB_APP_URL}?action=getProgress`);
+                const data = await res.json();
+                if (!data.ok || !data.records) return;
+
+                let changed = false;
+                Object.keys(data.records).forEach(sid => {
+                    const rec = data.records[sid];
+                    const targetStd = studentsState.find(s => s.id === sid);
+                    if (!targetStd) return;
+
+                    if (rec.name && rec.name !== sid) targetStd.name = rec.name;
+                    if (rec.level) targetStd.level = rec.level;
+                    if (rec.chapter) targetStd.chapter = Number(rec.chapter);
+                    if (rec.targetScore) targetStd.targetScore = Number(rec.targetScore);
+                    if (rec.lastDate) targetStd.lastDate = rec.lastDate;
+                    if (Array.isArray(rec.wrongHistory)) {
+                        targetStd.wrongHistory = rec.wrongHistory;
+                    }
+                    changed = true;
+                });
+
+                if (changed) {
+                    saveStates();
+                    renderAdminLearningTable();
+                    if (typeof renderAdminStudentTable === 'function') {
+                        renderAdminStudentTable();
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to sync quiz progress from sheet:', e);
+            }
+        }
+
         function submitQuiz() {
             let correctCount = 0;
             const wrongItems = [];
@@ -1169,7 +1237,18 @@ async function syncStudentsFromSheet() {
                 if (isPassed && std.chapter < 12) {
                     std.chapter += 1;
                 }
+                currentUser.data.chapter = std.chapter;
+                currentUser.data.wrongHistory = wrongItems;
+                currentUser.data.lastDate = std.lastDate;
                 saveStates();
+
+                // 구글 시트(quiz_records)에 퀴즈 결과 및 오답 내역 저장
+                sendQuizResultToSheet(std, {
+                    chapter: std.chapter,
+                    quizRange: `Ch.1 ~ Ch.${std.chapter}`,
+                    score: score,
+                    passed: isPassed
+                });
             }
 
             // Render Results Modal
